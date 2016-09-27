@@ -10,13 +10,13 @@ namespace Tavis.HttpCache
     public class InMemoryContentStore : IContentStore
     {
         private readonly object syncRoot = new object();
-        private readonly Dictionary<CacheKey, CacheEntryContainer> _CacheContainers = new Dictionary<CacheKey, CacheEntryContainer>();
+        private readonly Dictionary<CacheKey, CacheEntryContainer> _cacheContainers = new Dictionary<CacheKey, CacheEntryContainer>();
         private readonly Dictionary<Guid, HttpResponseMessage> _responseCache = new Dictionary<Guid, HttpResponseMessage>();
         
 
         public async Task<IEnumerable<CacheEntry>> GetEntriesAsync(CacheKey cacheKey)
         {
-            return _CacheContainers.ContainsKey(cacheKey) ? _CacheContainers[cacheKey].Entries : null;
+            return _cacheContainers.ContainsKey(cacheKey) ? _cacheContainers[cacheKey].Entries : null;
         }
 
         public async Task<HttpResponseMessage> GetResponseAsync(Guid variantId)
@@ -26,7 +26,7 @@ namespace Tavis.HttpCache
 
         public async Task AddEntryAsync(CacheEntry entry, HttpResponseMessage response)
         {
-            CacheEntryContainer cacheEntryContainer = GetOrCreateContainer(entry.Key);
+            var cacheEntryContainer = GetOrCreateContainer(entry.Key);
             lock (syncRoot)
             {
                 cacheEntryContainer.Entries.Add(entry);
@@ -36,8 +36,7 @@ namespace Tavis.HttpCache
 
         public async Task UpdateEntryAsync(CacheEntry entry, HttpResponseMessage response)
         {
-
-            CacheEntryContainer cacheEntryContainer = GetOrCreateContainer(entry.Key);
+            var cacheEntryContainer = GetOrCreateContainer(entry.Key);
             
             lock (syncRoot)
             {
@@ -52,17 +51,17 @@ namespace Tavis.HttpCache
         {
             CacheEntryContainer cacheEntryContainer;
 
-            if (!_CacheContainers.ContainsKey(key))
+            if (!_cacheContainers.ContainsKey(key))
             {
                 cacheEntryContainer = new CacheEntryContainer(key);
                 lock (syncRoot)
                 {
-                    _CacheContainers[key] = cacheEntryContainer;
+                    _cacheContainers[key] = cacheEntryContainer;
                 }
             }
             else
             {
-                cacheEntryContainer = _CacheContainers[key];
+                cacheEntryContainer = _cacheContainers[key];
             }
             return cacheEntryContainer;
         }
