@@ -1,4 +1,4 @@
-﻿namespace HttpCacheTests.Controllers
+﻿namespace HttpCacheTests.Fixture.Controllers
 {
     using System;
     using System.Collections.Generic;

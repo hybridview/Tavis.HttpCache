@@ -1,4 +1,4 @@
-﻿namespace HttpCacheTests
+﻿namespace HttpCacheTests.Fixture
 {
     using System;
     using System.Net.Http;

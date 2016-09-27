@@ -7,6 +7,8 @@ using Xunit;
 
 namespace HttpCacheTests
 {
+    using HttpCacheTests.Fixture;
+
     public class RequestDirectiveTests
     {
         private readonly TestServerFixture _fixture;
