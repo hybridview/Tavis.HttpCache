@@ -59,14 +59,15 @@
     <None Include="app.config" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CacheEntry.cs" />
-    <Compile Include="CacheQueryResult.cs" />
-    <Compile Include="CacheStatus.cs" />
+    <Compile Include="Cache\CacheEntry.cs" />
+    <Compile Include="Cache\CacheEntryContainer.cs" />
+    <Compile Include="Cache\CacheQueryResult.cs" />
+    <Compile Include="Cache\CacheStatus.cs" />
     <Compile Include="GetUtcNow.cs" />
-    <Compile Include="HttpCache.cs" />
-    <Compile Include="IContentStore.cs" />
-    <Compile Include="InMemoryContentStore.cs" />
-    <Compile Include="CacheKey.cs" />
+    <Compile Include="Cache\HttpCache.cs" />
+    <Compile Include="Cache\IContentStore.cs" />
+    <Compile Include="Cache\InMemoryContentStore.cs" />
+    <Compile Include="Cache\CacheKey.cs" />
     <Compile Include="HttpCacheHandler.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -87,6 +88,7 @@
       <HintPath>..\..\portable-headers\System.Net.Http.dll</HintPath>
     </Reference>
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

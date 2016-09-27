@@ -1,12 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
-using System.Threading.Tasks;
-
-namespace Tavis.HttpCache
+﻿namespace Tavis.HttpCache.Cache
 {
+    using System;
+    using System.Collections.Generic;
+    using System.IO;
+    using System.Linq;
+    using System.Net.Http;
+    using System.Threading.Tasks;
+
     public class InMemoryContentStore : IContentStore
     {
         private readonly object _syncRoot = new object();
@@ -71,8 +71,10 @@ namespace Tavis.HttpCache
             var newResponse = new HttpResponseMessage(response.StatusCode);
             var ms = new MemoryStream();
 
-            foreach (var v in response.Headers) newResponse.Headers.TryAddWithoutValidation(v.Key, v.Value);
-
+            foreach (var v in response.Headers)
+            {
+                newResponse.Headers.TryAddWithoutValidation(v.Key, v.Value);
+            }
 
             if (response.Content != null)
             {
@@ -83,18 +85,6 @@ namespace Tavis.HttpCache
             }
 
             return newResponse;
-        }
-    }
-
-    public class CacheEntryContainer
-    {
-        public CacheKey PrimaryCacheKey { get; set; }
-        public List<CacheEntry> Entries { get; set; }
-
-        public CacheEntryContainer(CacheKey primaryCacheKey)
-        {
-            PrimaryCacheKey = primaryCacheKey;
-            Entries = new List<CacheEntry>();
         }
     }
 }

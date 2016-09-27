@@ -1,13 +1,12 @@
-﻿using System;
-using System.Net.Http;
-
-namespace Tavis.HttpCache
+﻿namespace Tavis.HttpCache.Cache
 {
+    using System;
+    using System.Net.Http;
+
     public class CacheKey
     {
         private readonly Uri _uri;
         private readonly HttpMethod _method;
-
 
         public CacheKey(Uri uri, HttpMethod method)
         {

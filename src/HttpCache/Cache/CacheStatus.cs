@@ -1,4 +1,4 @@
-﻿namespace Tavis.HttpCache
+﻿namespace Tavis.HttpCache.Cache
 {
     public enum CacheStatus
     {

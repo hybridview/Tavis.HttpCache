@@ -4,6 +4,7 @@
     using System.Net.Http;
     using System.Web.Http;
     using Tavis.HttpCache;
+    using Tavis.HttpCache.Cache;
 
     public class TestServerFixture
     {
