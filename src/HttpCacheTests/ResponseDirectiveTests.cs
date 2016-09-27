@@ -52,9 +52,6 @@ namespace HttpCacheTests
             HttpAssert.FromServer(response3);
         }
 
-
-
-
         [Fact]
         public async Task Simple_private_caching_using_query_parameter()
         {
@@ -170,8 +167,6 @@ namespace HttpCacheTests
             HttpAssert.FromServer(response3);
         }
 
-
-
         [Fact]
         public async Task Simple_private_caching_with_etag()
         {
@@ -196,44 +191,49 @@ namespace HttpCacheTests
             HttpAssert.FromCache(response4);
         }
 
-
         [Fact]
         public async Task Private_caching_accept_language_vary_header_and_request_with_no_accept_language()
         {
             var client = CreateCachingEnabledClient();
 
-            var linkEnglish = new Link()
+            var linkEnglish = new Link
             {
                 Target = new Uri("/VaryingCacheableResource", UriKind.Relative)
             };
-            linkEnglish.RequestHeaders.AcceptLanguage.Add(new StringWithQualityHeaderValue("en"));
-            
-            var response = await client.SendAsync(linkEnglish.CreateRequest());
+
+            var linkEnglishRequest = linkEnglish.CreateRequest();
+            linkEnglishRequest.Headers.AcceptLanguage.Add(new StringWithQualityHeaderValue("en"));
+
+            var response = await client.SendAsync(linkEnglishRequest);
             HttpAssert.FromServer(response);
 
-            linkEnglish.RequestHeaders.AcceptLanguage.Clear();
             var response2 = await client.SendAsync(linkEnglish.CreateRequest());
 
             HttpAssert.FromServer(response2);
         }
-
 
         [Fact]
         public async Task Private_caching_with_accept_language_vary_header()
         {
             var client = CreateCachingEnabledClient();
 
-            var linkEnglish = new Link()
+            var linkEnglish = new Link
             {
                 Target = new Uri("/VaryingCacheableResource", UriKind.Relative)
             };
-            linkEnglish.RequestHeaders.AcceptLanguage.Add(new StringWithQualityHeaderValue("en"));
+            linkEnglish.AddRequestBuilder(request =>
+            {
+                request.Headers.AcceptLanguage.Add(new StringWithQualityHeaderValue("en"));
+            });
 
-            var linkFrench = new Link()
+            var linkFrench = new Link
             {
                 Target = new Uri("/VaryingCacheableResource", UriKind.Relative)
             };
-            linkFrench.RequestHeaders.AcceptLanguage.Add(new StringWithQualityHeaderValue("fr"));
+            linkFrench.AddRequestBuilder(request =>
+            {
+                request.Headers.AcceptLanguage.Add(new StringWithQualityHeaderValue("fr"));
+            });
 
             var response = await client.SendAsync(linkEnglish.CreateRequest());
             Assert.Equal("This is cached content", await response.Content.ReadAsStringAsync());
@@ -260,26 +260,26 @@ namespace HttpCacheTests
             var responseExplicitEn3 = await client.SendAsync(linkEnglish.CreateRequest());
             Assert.Equal("This is cached content", await responseExplicitEn3.Content.ReadAsStringAsync());
             HttpAssert.FromCache(responseExplicitEn3);
-
         }
 
         [Fact]
         public async Task Private_caching_with_encoding_vary_header()
         {
-
             var client = CreateCachingEnabledClient();
 
-            var linkCompressed = new Link()
+            var linkCompressed = new Link
             {
                 Target = new Uri("/VaryingCompressedContent", UriKind.Relative)
             };
-            linkCompressed.RequestHeaders.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip"));
+            linkCompressed.AddRequestBuilder(
+                request => request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue("gzip")));
 
-            var linkUnCompressed = new Link()
+            var linkUnCompressed = new Link
             {
                 Target = new Uri("/VaryingCompressedContent", UriKind.Relative)
             };
-            linkUnCompressed.RequestHeaders.AcceptEncoding.Add(new StringWithQualityHeaderValue("identity"));
+            linkUnCompressed.AddRequestBuilder(
+                request => request.Headers.AcceptEncoding.Add(new StringWithQualityHeaderValue("identity")));
 
             var response = await client.SendAsync(linkCompressed.CreateRequest());
             var content = await response.Content.ReadAsStringAsync();
@@ -301,7 +301,6 @@ namespace HttpCacheTests
             var content5 = await response5.Content.ReadAsStringAsync();
             HttpAssert.FromCache(response5);
         }
-
 
         [Fact]
         public async Task Private_caching_with_vary_star_header()
@@ -326,11 +325,7 @@ namespace HttpCacheTests
             var client = new HttpClient(clientHandler) { BaseAddress = _BaseAddress };
             return client;
         }
-
-
     }
-
-
 
     public static class HttpAssert
     {
@@ -342,6 +337,18 @@ namespace HttpCacheTests
         public static void FromServer(HttpResponseMessage response)
         {
             Assert.Null(response.Headers.Age);
+        }
+    }
+
+    public static class LinkExtensions
+    {
+        public static void AddRequestBuilder(this Link link, Action<HttpRequestMessage> requestBuilderAction)
+        {
+            link.AddRequestBuilder(request =>
+            {
+                requestBuilderAction(request);
+                return request;
+            });
         }
     }
 }
