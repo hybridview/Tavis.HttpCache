@@ -77,7 +77,17 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CachingControllers.cs" />
+    <Compile Include="Controllers\CacheablePostResponseController.cs" />
+    <Compile Include="Controllers\CacheableResourceController.cs" />
+    <Compile Include="Controllers\CompressedContent.cs" />
+    <Compile Include="Controllers\PointAController.cs" />
+    <Compile Include="Controllers\PointBController.cs" />
+    <Compile Include="Controllers\ResourceWithEtagController.cs" />
+    <Compile Include="Controllers\VaryingCacheableResourceController.cs" />
+    <Compile Include="Controllers\VaryingCompressedContentController.cs" />
+    <Compile Include="Controllers\VaryStarController.cs" />
+    <Compile Include="HttpAssert.cs" />
+    <Compile Include="LinkExtensions.cs" />
     <Compile Include="RequestDirectiveTests.cs" />
     <Compile Include="ResponseDirectiveTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

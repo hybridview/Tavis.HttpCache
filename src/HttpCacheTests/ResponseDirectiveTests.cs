@@ -326,29 +326,4 @@ namespace HttpCacheTests
             return client;
         }
     }
-
-    public static class HttpAssert
-    {
-        public static void FromCache(HttpResponseMessage response)
-        {
-            Assert.NotNull(response.Headers.Age);
-        }
-
-        public static void FromServer(HttpResponseMessage response)
-        {
-            Assert.Null(response.Headers.Age);
-        }
-    }
-
-    public static class LinkExtensions
-    {
-        public static void AddRequestBuilder(this Link link, Action<HttpRequestMessage> requestBuilderAction)
-        {
-            link.AddRequestBuilder(request =>
-            {
-                requestBuilderAction(request);
-                return request;
-            });
-        }
-    }
 }
