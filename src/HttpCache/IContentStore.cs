@@ -1,15 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Net.Http;
-using System.Threading.Tasks;
-
-namespace Tavis.HttpCache
+﻿namespace Tavis.HttpCache
 {
+    using System;
+    using System.Net.Http;
+    using System.Threading.Tasks;
+
     public interface IContentStore
     {
         // Retreive all CacheEntries for a particular URL/HttpMethod
         // There should be one CacheEntry for each representation
-        Task<IEnumerable<CacheEntry>> GetEntriesAsync(CacheKey cacheKey);
+        Task<CacheEntry[]> GetEntriesAsync(CacheKey cacheKey);
 
         // Retreive stored HttpResponseMessage using VariantId from selected CacheEntry
         Task<HttpResponseMessage> GetResponseAsync(Guid variantId);

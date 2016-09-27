@@ -9,14 +9,14 @@ namespace Tavis.HttpCache
 {
     public class InMemoryContentStore : IContentStore
     {
-        private readonly object syncRoot = new object();
+        private readonly object _syncRoot = new object();
         private readonly Dictionary<CacheKey, CacheEntryContainer> _cacheContainers = new Dictionary<CacheKey, CacheEntryContainer>();
         private readonly Dictionary<Guid, HttpResponseMessage> _responseCache = new Dictionary<Guid, HttpResponseMessage>();
         
 
-        public async Task<IEnumerable<CacheEntry>> GetEntriesAsync(CacheKey cacheKey)
+        public async Task<CacheEntry[]> GetEntriesAsync(CacheKey cacheKey)
         {
-            return _cacheContainers.ContainsKey(cacheKey) ? _cacheContainers[cacheKey].Entries : null;
+            return _cacheContainers.ContainsKey(cacheKey) ? _cacheContainers[cacheKey].Entries.ToArray() : new CacheEntry[0];
         }
 
         public async Task<HttpResponseMessage> GetResponseAsync(Guid variantId)
@@ -27,7 +27,7 @@ namespace Tavis.HttpCache
         public async Task AddEntryAsync(CacheEntry entry, HttpResponseMessage response)
         {
             var cacheEntryContainer = GetOrCreateContainer(entry.Key);
-            lock (syncRoot)
+            lock (_syncRoot)
             {
                 cacheEntryContainer.Entries.Add(entry);
                 _responseCache[entry.VariantId] = response;
@@ -38,7 +38,7 @@ namespace Tavis.HttpCache
         {
             var cacheEntryContainer = GetOrCreateContainer(entry.Key);
             
-            lock (syncRoot)
+            lock (_syncRoot)
             {
                 var oldentry = cacheEntryContainer.Entries.First(e => e.VariantId == entry.VariantId);
                 cacheEntryContainer.Entries.Remove(oldentry);
@@ -54,7 +54,7 @@ namespace Tavis.HttpCache
             if (!_cacheContainers.ContainsKey(key))
             {
                 cacheEntryContainer = new CacheEntryContainer(key);
-                lock (syncRoot)
+                lock (_syncRoot)
                 {
                     _cacheContainers[key] = cacheEntryContainer;
                 }
