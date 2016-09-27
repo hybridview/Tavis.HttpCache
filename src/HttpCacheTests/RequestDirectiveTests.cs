@@ -2,28 +2,26 @@
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Threading;
 using System.Threading.Tasks;
-using Tavis.HttpCache;
 using Xunit;
 
 namespace HttpCacheTests
 {
     public class RequestDirectiveTests
     {
-        private readonly Uri _baseAddress;
+        private readonly TestServerFixture _fixture;
+        private readonly HttpClient _client;
 
         public RequestDirectiveTests()
         {
-            _baseAddress = new Uri($"http://{Environment.MachineName}:1001");
+            _fixture = new TestServerFixture();
+            _client = _fixture.Client;
         }
 
         [Fact]
         public async Task Refuse_cached()
         {
-            var client = CreateClientWithMessageHandlerCache();
-
-            var response = await client.GetAsync("/CacheableResource"); // Round trip to server
+            var response = await _client.GetAsync("/CacheableResource"); // Round trip to server
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             HttpAssert.FromServer(response);
 
@@ -33,7 +31,7 @@ namespace HttpCacheTests
             };
             request.Headers.CacheControl = new CacheControlHeaderValue() {NoCache = true};
 
-            var response2 = await client.SendAsync(request);
+            var response2 = await _client.SendAsync(request);
             Assert.Equal(HttpStatusCode.OK, response2.StatusCode);
             HttpAssert.FromServer(response2);
         }
@@ -41,13 +39,11 @@ namespace HttpCacheTests
         [Fact]
         public async Task Indicate_that_stale_requests_are_ok_with_messagehandler()
         {
-            var client = CreateClientWithMessageHandlerCache();
-
-            var response = await client.GetAsync("/CacheableResource");  // Round trip to server
+            var response = await _client.GetAsync("/CacheableResource");  // Round trip to server
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             HttpAssert.FromServer(response);
 
-            Thread.Sleep(6000);  // Stored representation is now stale by 1 second
+            _fixture.TimeTravel(6); // Stored representation is now stale by 1 second
 
             var request = new HttpRequestMessage()
             {
@@ -58,11 +54,11 @@ namespace HttpCacheTests
                 MaxStale = true,
                 MaxStaleLimit = new TimeSpan(0, 0, 3)
             };
-            var response2 = await client.SendAsync(request);  // From Cache
+            var response2 = await _client.SendAsync(request);  // From Cache
             Assert.Equal(HttpStatusCode.OK, response2.StatusCode);
             HttpAssert.FromCache(response2);
 
-            Thread.Sleep(3000);  // Stored representation is now stale by 4 second
+            _fixture.TimeTravel(3); // Stored representation is now stale by 4 second
 
             var request2 = new HttpRequestMessage()
             {
@@ -74,7 +70,7 @@ namespace HttpCacheTests
                 MaxStaleLimit = new TimeSpan(0, 0, 3)
             };
 
-            var response3 = await client.SendAsync(request2);
+            var response3 = await _client.SendAsync(request2);
             Assert.Equal(HttpStatusCode.OK, response3.StatusCode);
             HttpAssert.FromServer(response3);
         }
@@ -82,13 +78,12 @@ namespace HttpCacheTests
         [Fact]
         public async Task Require_minimum_freshness_with_messagehandler()
         {
-            var client = CreateClientWithMessageHandlerCache();
-            var response = await client.GetAsync("/CacheableResource");  // Round trip to server
+            var response = await _client.GetAsync("/CacheableResource");  // Round trip to server
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             HttpAssert.FromServer(response);
 
-            Thread.Sleep(3000);
+            _fixture.TimeTravel(3);
             var request2 = new HttpRequestMessage()
             {
                 RequestUri = new Uri("/CacheableResource", UriKind.Relative)
@@ -98,11 +93,11 @@ namespace HttpCacheTests
                 MinFresh = new TimeSpan(0, 0, 2)
             };
 
-            var response2 = await client.SendAsync(request2);
+            var response2 = await _client.SendAsync(request2);
             Assert.Equal(HttpStatusCode.OK, response2.StatusCode);
             HttpAssert.FromServer(response2);
 
-            Thread.Sleep(3000);
+            _fixture.TimeTravel(3);
             var request3 = new HttpRequestMessage()
             {
                 RequestUri = new Uri("/CacheableResource", UriKind.Relative)
@@ -112,7 +107,7 @@ namespace HttpCacheTests
                 MinFresh = new TimeSpan(0, 0, 4)
             };
 
-            var response3 = await client.SendAsync(request3);
+            var response3 = await _client.SendAsync(request3);
             Assert.Equal(HttpStatusCode.OK, response3.StatusCode);
             HttpAssert.FromCache(response3);
         }
@@ -120,13 +115,12 @@ namespace HttpCacheTests
         [Fact]
         public async Task Request_only_cached_content_with_messagehandler()
         {
-            var client = CreateClientWithMessageHandlerCache();
-            var response = await client.GetAsync("/CacheableResource");  // Round trip to server
+            var response = await _client.GetAsync("/CacheableResource");  // Round trip to server
 
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             HttpAssert.FromServer(response);
 
-            Thread.Sleep(1000);
+            _fixture.TimeTravel(1);
             var request2 = new HttpRequestMessage()
             {
                 RequestUri = new Uri("/CacheableResource", UriKind.Relative)
@@ -136,12 +130,12 @@ namespace HttpCacheTests
                 OnlyIfCached = true
             };
 
-            var response2 = await client.SendAsync(request2);
+            var response2 = await _client.SendAsync(request2);
             Assert.Equal(HttpStatusCode.OK, response2.StatusCode);
             HttpAssert.FromCache(response2);
 
-            Thread.Sleep(5000);
-            var request3 = new HttpRequestMessage()
+            _fixture.TimeTravel(5);
+            var request3 = new HttpRequestMessage
             {
                 RequestUri = new Uri("/CacheableResource", UriKind.Relative)
             };
@@ -150,15 +144,13 @@ namespace HttpCacheTests
                 OnlyIfCached = true
             };
 
-            var response3 = await client.SendAsync(request3);
+            var response3 = await _client.SendAsync(request3);
             Assert.Equal(HttpStatusCode.GatewayTimeout, response3.StatusCode);
         }
 
         [Fact]
         public async Task Request_that_response_not_be_stored_with_messagehandler()
         {
-            var client = CreateClientWithMessageHandlerCache();
-
             var request = new HttpRequestMessage()
             {
                 RequestUri = new Uri("/CacheableResource", UriKind.Relative)
@@ -168,7 +160,7 @@ namespace HttpCacheTests
                 NoStore = true
             };
 
-            var response = await client.SendAsync(request);
+            var response = await _client.SendAsync(request);
             Assert.Equal(HttpStatusCode.OK, response.StatusCode);
             HttpAssert.FromServer(response);
 
@@ -177,18 +169,9 @@ namespace HttpCacheTests
                 RequestUri = new Uri("/CacheableResource", UriKind.Relative)
             };
 
-            var response2 = await client.SendAsync(request2);
+            var response2 = await _client.SendAsync(request2);
             Assert.Equal(HttpStatusCode.OK, response2.StatusCode);
             HttpAssert.FromServer(response2);
-        }
-
-        private HttpClient CreateClientWithMessageHandlerCache()
-        {
-            var httpClientHandler = TestServer.CreateServer();
-            
-            var clientHandler = new HttpCacheHandler(httpClientHandler, new HttpCache(new InMemoryContentStore()));
-            var client = new HttpClient(clientHandler) { BaseAddress = _baseAddress };
-            return client;
         }
     }
 }

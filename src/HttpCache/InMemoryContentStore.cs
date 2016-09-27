@@ -16,11 +16,7 @@ namespace Tavis.HttpCache
 
         public async Task<IEnumerable<CacheEntry>> GetEntriesAsync(CacheKey cacheKey)
         {
-            if (_CacheContainers.ContainsKey(cacheKey)) 
-            {
-                return _CacheContainers[cacheKey].Entries;
-            }
-            return null;
+            return _CacheContainers.ContainsKey(cacheKey) ? _CacheContainers[cacheKey].Entries : null;
         }
 
         public async Task<HttpResponseMessage> GetResponseAsync(Guid variantId)

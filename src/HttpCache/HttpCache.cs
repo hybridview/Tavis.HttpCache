@@ -11,22 +11,22 @@ namespace Tavis.HttpCache
     public class HttpCache
     {
         private readonly IContentStore _contentStore;
-
-        public Func<HttpResponseMessage, bool> StoreBasedOnHeuristics = (r) => false;
-        public bool SharedCache { get; set; }
-
-        public Dictionary<HttpMethod, object> CacheableMethods = new Dictionary<HttpMethod, object>
+        private readonly GetUtcNow _getUtcNow;
+        public readonly Func<HttpResponseMessage, bool> StoreBasedOnHeuristics = (r) => false;
+        public readonly Dictionary<HttpMethod, object> CacheableMethods = new Dictionary<HttpMethod, object>
         {
             {HttpMethod.Get, null},
             {HttpMethod.Head, null},
-            {HttpMethod.Post,null}
+            {HttpMethod.Post, null}
         };
 
-        public HttpCache(IContentStore contentStore)
+        public HttpCache(IContentStore contentStore, GetUtcNow getUtcNow = null)
         {
             _contentStore = contentStore;
-            SharedCache = false;
+            _getUtcNow = getUtcNow ?? (() => DateTime.UtcNow);
         }
+
+        public bool SharedCache { get; set; }
 
         public async Task<CacheQueryResult> QueryCacheAsync(HttpRequestMessage request)
         {
@@ -41,7 +41,6 @@ namespace Tavis.HttpCache
             // and the values in the request
             var selectedEntry = MatchVariant(request, cacheEntryList);
 
-
             // Do we have a matching variant representation?
             if (selectedEntry == null)
             {
@@ -55,7 +54,7 @@ namespace Tavis.HttpCache
             var requestCacheControl = request.Headers.CacheControl ?? new CacheControlHeaderValue();
             if ((requestCacheControl.NoCache || selectedEntry.CacheControl.NoCache))
             {
-                return CacheQueryResult.Revalidate(selectedEntry, response);
+                return CacheQueryResult.Revalidate(this, selectedEntry, response);
             }
 
             // Is it fresh?
@@ -64,15 +63,15 @@ namespace Tavis.HttpCache
                 
                 if (requestCacheControl.MinFresh != null)
                 {
-                    var age = HttpCache.CalculateAge(response);
+                    var age = CalculateAge(response);
                     if (age <= requestCacheControl.MinFresh)
                     {
-                        return CacheQueryResult.ReturnStored(selectedEntry,response);
+                        return CacheQueryResult.ReturnStored(this, selectedEntry,response);
                     }
                 }
                 else
                 {
-                    return CacheQueryResult.ReturnStored(selectedEntry,response);    
+                    return CacheQueryResult.ReturnStored(this, selectedEntry,response);    
                 }
                 
             }
@@ -82,26 +81,21 @@ namespace Tavis.HttpCache
             {
                 if (requestCacheControl.MaxStaleLimit != null)
                 {
-                    if ((DateTime.UtcNow - selectedEntry.Expires) <= requestCacheControl.MaxStaleLimit)
+                    if (_getUtcNow() - selectedEntry.Expires <= requestCacheControl.MaxStaleLimit)
                     {
-                        return CacheQueryResult.ReturnStored(selectedEntry,response);
+                        return CacheQueryResult.ReturnStored(this, selectedEntry,response);
                     }
                 }
                 else
                 {
-                    return CacheQueryResult.ReturnStored(selectedEntry,response);    
+                    return CacheQueryResult.ReturnStored(this, selectedEntry,response);    
                 }
             }
 
             // Do we have a selector to allow us to do a conditional request to revalidate it?
-            if (selectedEntry.HasValidator)  
-            {
-                return CacheQueryResult.Revalidate(selectedEntry, response);
-            }
-
-            // Can't do anything to help
-            return CacheQueryResult.CannotUseCache();
-
+            return selectedEntry.HasValidator 
+                ? CacheQueryResult.Revalidate(this, selectedEntry, response) 
+                : CacheQueryResult.CannotUseCache(); // Can't do anything to help
         }
 
         public bool CanStore(HttpResponseMessage response)
@@ -115,8 +109,6 @@ namespace Tavis.HttpCache
 
             var cacheControlHeaderValue = response.Headers.CacheControl;
             if (cacheControlHeaderValue != null && cacheControlHeaderValue.NoStore) return false;
-
-
 
             if (SharedCache)
             {
@@ -149,7 +141,6 @@ namespace Tavis.HttpCache
                 return StoreBasedOnHeuristics(response);
             }
 
-
             return false;
         }
 
@@ -160,9 +151,7 @@ namespace Tavis.HttpCache
             UpdateCacheEntry(notModifiedResponse, selectedEntry);
 
             await _contentStore.UpdateEntryAsync(selectedEntry, result.SelectedResponse).ConfigureAwait(false);  //TODO
-            
         }
-
 
         public async Task StoreResponseAsync(HttpResponseMessage response)
         {
@@ -183,7 +172,7 @@ namespace Tavis.HttpCache
             }
             else
             {
-                selectedEntry = new CacheEntry(primaryCacheKey, response);
+                selectedEntry = new CacheEntry(primaryCacheKey, response, _getUtcNow);
                 UpdateCacheEntry(response, selectedEntry);
                 await _contentStore.AddEntryAsync(selectedEntry, response).ConfigureAwait(false);
             }
@@ -191,45 +180,36 @@ namespace Tavis.HttpCache
 
         private static CacheEntry MatchVariant(HttpRequestMessage request, IEnumerable<CacheEntry> cacheEntryList)
         {
-            if (cacheEntryList == null) return null;
-            var selectedEntry = cacheEntryList
+            var selectedEntry = cacheEntryList?
                 .Where(ce => ce.Match(request))
-                .OrderByDescending(ce => ce.Date).FirstOrDefault();
+                .OrderByDescending(ce => ce.Date)
+                .FirstOrDefault();
             return selectedEntry;
         }
 
-        private static void UpdateCacheEntry(HttpResponseMessage updatedResponse, CacheEntry entry)
+        private void UpdateCacheEntry(HttpResponseMessage updatedResponse, CacheEntry entry)
         {
-            var newExpires = HttpCache.GetExpireDate(updatedResponse);
+            var newExpires = GetExpireDate(updatedResponse);
 
             if (newExpires > entry.Expires)
             {
                 entry.Expires = newExpires;
             }
-            entry.Etag = updatedResponse.Headers.ETag != null ? updatedResponse.Headers.ETag.Tag : null;
+            entry.Etag = updatedResponse.Headers.ETag?.Tag;
             if (updatedResponse.Content != null)
             {
                 entry.LastModified = updatedResponse.Content.Headers.LastModified;
             }
         }
 
-        private static DateTimeOffset GetExpireDate(HttpResponseMessage response)
+        private DateTimeOffset GetExpireDate(HttpResponseMessage response)
         {
-            if (response.Headers.CacheControl != null && response.Headers.CacheControl.MaxAge != null)
+            if (response.Headers.CacheControl?.MaxAge != null)
             {
-                return DateTime.UtcNow + response.Headers.CacheControl.MaxAge.Value;
+                return _getUtcNow() + response.Headers.CacheControl.MaxAge.Value;
             }
-            else
-            {
-                if (response.Content != null && response.Content.Headers.Expires != null)
-                {
-                    return response.Content.Headers.Expires.Value;
-                }
-            }
-            return DateTime.UtcNow;  // Store but assume stale
+            return response.Content?.Headers.Expires ?? _getUtcNow();
         }
-
-       
 
         public static void ApplyConditionalHeaders(CacheQueryResult result, HttpRequestMessage request)
         {
@@ -246,11 +226,10 @@ namespace Tavis.HttpCache
                 {
                     request.Headers.IfModifiedSince = result.SelectedEntry.LastModified;
                 }
-
             }
         }
 
-        public static void UpdateAgeHeader(HttpResponseMessage response)
+        public void UpdateAgeHeader(HttpResponseMessage response)
         {
             if (response.Headers.Date.HasValue)
             {
@@ -258,14 +237,12 @@ namespace Tavis.HttpCache
             }
         }
 
-        public static TimeSpan CalculateAge(HttpResponseMessage response)
+        public TimeSpan CalculateAge(HttpResponseMessage response)
         {
-            var age = DateTime.UtcNow - response.Headers.Date.Value;
+            var age = _getUtcNow() - response.Headers.Date.Value;
             if (age.TotalMilliseconds < 0) age = new TimeSpan(0);
             
             return new TimeSpan(0, 0, (int) Math.Round(age.TotalSeconds));;
         }
     }
-
-    
 }

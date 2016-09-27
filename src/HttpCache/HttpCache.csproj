@@ -62,6 +62,8 @@
   <ItemGroup>
     <Compile Include="CacheEntry.cs" />
     <Compile Include="CacheQueryResult.cs" />
+    <Compile Include="CacheStatus.cs" />
+    <Compile Include="GetUtcNow.cs" />
     <Compile Include="HttpCache.cs" />
     <Compile Include="IContentStore.cs" />
     <Compile Include="InMemoryContentStore.cs" />

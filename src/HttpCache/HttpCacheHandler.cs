@@ -9,8 +9,7 @@ namespace Tavis.HttpCache
     {
         private readonly HttpCache _httpCache;
 
-
-        public HttpCacheHandler(HttpMessageHandler innerHandler, Tavis.HttpCache.HttpCache httpCache)
+        public HttpCacheHandler(HttpMessageHandler innerHandler, HttpCache httpCache)
         {
             _httpCache = httpCache;
             InnerHandler = innerHandler;

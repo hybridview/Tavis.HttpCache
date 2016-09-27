@@ -8,6 +8,7 @@ namespace Tavis.HttpCache
 {
     public class CacheEntry
     {
+        private readonly GetUtcNow _getUtcNow;
 
         public CacheKey Key { get; private set; }
 
@@ -19,16 +20,19 @@ namespace Tavis.HttpCache
         public CacheControlHeaderValue CacheControl { get; set; }
 
         public bool HasValidator { get; set; }
+
         public DateTimeOffset? LastModified { get; set; }
+
         public string Etag { get; set; }
 
         private List<string> Vary { get; set; }
+
         private Dictionary<string, IEnumerable<string>> ResponseVaryHeaders { get; set; }
 
-
-        public CacheEntry(CacheKey key, HttpResponseMessage response)
+        public CacheEntry(CacheKey key, HttpResponseMessage response, GetUtcNow getUtcNow)
         {
             Key = key;
+            _getUtcNow = getUtcNow;
             Vary = response.Headers.Vary.Select(v=> v.ToLowerInvariant()).ToList();
             ResponseVaryHeaders = response.RequestMessage.Headers
                                     .Where(h => Vary.Contains(h.Key.ToLowerInvariant()))
@@ -40,7 +44,7 @@ namespace Tavis.HttpCache
 
         public bool IsFresh()
         {
-            return  Expires > DateTime.UtcNow;
+            return  Expires > _getUtcNow();
         }
 
         public bool Match(HttpRequestMessage request)
